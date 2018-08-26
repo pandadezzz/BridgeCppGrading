@@ -2,18 +2,9 @@ from collections import defaultdict
 import subprocess
 import os
 import sys
+import re
 
-'''
-We want to compile the programs by question
-'''
 class BridgeBatchCompiler:
-    '''
-    directory: String
-        String representation of the directory where homework files are stored
-
-    questions: List[Int]
-        Range of questions for a given assignment
-    '''
     def __init__(self, directory, program_input, subdirectory='Submission attachment(s)'):
         self.subdirectory = subdirectory
         self.program_input = program_input
@@ -26,13 +17,12 @@ class BridgeBatchCompiler:
     def __run_file(self, filepath):
         compile_file = subprocess.call([
             "g++",
-            "-o output",
             filepath
         ])
 
         # still not totally sure what this does
         run_executable = subprocess.Popen(
-            "./output",
+            "./a.out",
             shell=True,
             stdout=subprocess.PIPE,
             stdin=subprocess.PIPE,
@@ -40,8 +30,6 @@ class BridgeBatchCompiler:
         )
 
         try:
-            # we should allow the user to read through test cases
-            # automate this portion rather than having a million executables
             output = run_executable.communicate(timeout=2, input=self.program_input)
         except subprocess.TimeoutExpired:
             print("Timeout happened\n")
@@ -58,7 +46,7 @@ class BridgeBatchCompiler:
         except:
             data = open(abs_path, newline='').read()
 
-        parsed_data = data.replace('#include "stdfax.h"', '').replace('뿃뻃',"")
+        parsed_data = re.sub('#include "stdafx.h"', '', data)
 
         try:
             f = open(abs_path, 'w')
