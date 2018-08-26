@@ -15,10 +15,14 @@ class BridgeBatchCompiler:
             raise Exception("Invalid directory")
 
     def __run_file(self, filepath):
-        compile_file = subprocess.call([
-            "g++",
-            filepath
-        ])
+        try:
+            compile_file = subprocess.call([
+                "g++",
+                filepath
+            ])
+        except Exception as e:
+            raise Exception("Compilation failed")
+
 
         # still not totally sure what this does
         run_executable = subprocess.Popen(
@@ -30,9 +34,14 @@ class BridgeBatchCompiler:
         )
 
         try:
+            print('Running: {}'.format(filepath))
             output = run_executable.communicate(timeout=2, input=self.program_input)
         except subprocess.TimeoutExpired:
             print("Timeout happened\n")
+            output = [[], [], ["Timeout"]]
+            run_executable.kill()
+        except Exception as e:
+            print("{} contains error: {}".format(filepath, e))
             output = [[], [], ["Timeout"]]
             run_executable.kill()
 
@@ -68,12 +77,16 @@ class BridgeBatchCompiler:
                 if cpp_file.endswith("{}.cpp".format(question)):
                     abs_path = os.path.join(filepath, cpp_file)
                     self.__preprocess_file(abs_path)
-                    output = self.__run_file(abs_path)
-                    if output[0] == 0:
-                        result["result"].append({
-                            "student_id": abs_path,
-                            "output": output[2][0]
-                        })
+                    try:
+                        output = self.__run_file(abs_path)
+                        if output[0] == 0:
+                            result["result"].append({
+                                "student_id": abs_path,
+                                "output": output[2][0]
+                            })
+                    except Exception as e:
+                        print(e)
+                        print("Error on: {}".format(abs_path))
         return result
 
     def run(self, question):
