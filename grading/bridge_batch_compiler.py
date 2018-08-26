@@ -1,3 +1,4 @@
+from collections import defaultdict
 import subprocess
 import os
 import sys
@@ -13,8 +14,9 @@ class BridgeBatchCompiler:
     questions: List[Int]
         Range of questions for a given assignment
     '''
-    def __init__(self, directory, subdirectory='Submission attachment(s)'):
+    def __init__(self, directory, program_input, subdirectory='Submission attachment(s)'):
         self.subdirectory = subdirectory
+        self.program_input = program_input
 
         if os.path.isdir(directory):
             self.directory = directory
@@ -40,31 +42,27 @@ class BridgeBatchCompiler:
         try:
             # we should allow the user to read through test cases
             # automate this portion rather than having a million executables
-            output = run_executable.communicate()
+            output = run_executable.communicate(timeout=2, input=self.program_input)
+        except subprocess.TimeoutExpired:
+            print("Timeout happened\n")
+            output = [[], [], ["Timeout"]]
+            run_executable.kill()
+
+        return [compile_file, run_executable, output]
 
 
     def __preprocess_file(self, abs_path):
-        encoding = ['utf-8', 'utf-16le']
-        # try opening the file first
-        try:
-            f = open(abs_path, 'r').read()
-        except Exception:
-            sys.exit(1)
 
-        for enc in encoding:
-            try:
-                f = f.replace('#include "stdafx.h"', '')
-                data = f.decode(enc)
-            except Exception:
-                if enc == encoding[-1]:
-                    sys.exit(1)
-                continue
-            finally:
-                break
-
-        f = open(abs_path, 'w')
         try:
-            f.write(data.encode('utf-8'))
+            data = open(abs_path, newline='', encoding='utf16').read()
+        except:
+            data = open(abs_path, newline='').read()
+
+        parsed_data = data.replace('#include "stdfax.h"', '').replace('뿃뻃',"")
+
+        try:
+            f = open(abs_path, 'w')
+            f.write(parsed_data)
         except Exception as e:
             print(e)
         finally:
@@ -72,7 +70,7 @@ class BridgeBatchCompiler:
 
 
     def __get_results(self, question):
-
+        result = defaultdict(list)
         for student_file in os.listdir(self.directory):
             # Assume here that the directory has a forward-slash
             filepath = "{}{}/{}/".format(self.directory,
@@ -82,12 +80,25 @@ class BridgeBatchCompiler:
                 if cpp_file.endswith("{}.cpp".format(question)):
                     abs_path = os.path.join(filepath, cpp_file)
                     self.__preprocess_file(abs_path)
-
+                    output = self.__run_file(abs_path)
+                    if output[0] == 0:
+                        result["result"].append({
+                            "student_id": abs_path,
+                            "output": output[2][0]
+                        })
+        return result
 
     def run(self, question):
-        self.__get_results(question)
+        return self.__get_results(question)
 
 if __name__ == '__main__':
-    BridgeBatchCompiler(
-        directory='../../cs-bridge/summer-extended-2018/hw4/homework #4/').run(1)
+    q1_test_case = input('Enter a test case for q1: ')
+    q1_results = BridgeBatchCompiler(
+        directory='../../cs-bridge/summer-extended-2018/hw4/homework #4/',
+        program_input=b'4\n4\n').run(1)
+
+    print("Done running...")
+
+    for res in q1_results["result"]:
+        print('{}: {}'.format(res['student_id'], res['output']))
 
